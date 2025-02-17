@@ -2,7 +2,7 @@ package router
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/your-github-account/memoru-backend/handler"
+	"github.com/tKwbr999/memoru-backend/handler"
 )
 
 func SetupRoutes(app *fiber.App) {

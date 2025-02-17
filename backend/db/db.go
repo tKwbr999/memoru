@@ -31,8 +31,6 @@ func Connect() (*sql.DB, error) {
 		os.Getenv("SUPABASE_DATABASE_SESSION_POOLER_PORT"),
 		os.Getenv("SUPABASE_DATABASE_DBNAME"))
 
-	fmt.Println(dbURL)
-
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		return nil, fmt.Errorf("error opening database connection: %w", err)

@@ -1,20 +1,21 @@
 package handler
 
 import (
-	"database/sql"
 	"net/http"
 	"runtime"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/pkg/errors"
-	"github.com/your-github-account/memoru-backend/model"
+	"github.com/tKwbr999/memoru-backend/db"
+	"github.com/tKwbr999/memoru-backend/model"
 )
 
 func CreateMemo(c *fiber.Ctx) error {
-	dbConn, ok := c.Locals("db").(*sql.DB)
-	if !ok {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "failed to get database connection from context"})
+	dbConn, err := db.Connect()
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": errors.Wrap(err, "failed to connect to database")})
 	}
+	defer dbConn.Close()
 
 	var memo model.Memo
 	if err := c.BodyParser(&memo); err != nil {
@@ -22,7 +23,7 @@ func CreateMemo(c *fiber.Ctx) error {
 	}
 
 	var id string
-	err := dbConn.QueryRow("INSERT INTO memos (content) VALUES ($1) RETURNING id", memo.Content).Scan(&id)
+	err = dbConn.QueryRow("INSERT INTO memos (content) VALUES ($1) RETURNING id", memo.Content).Scan(&id)
 	if err != nil {
 		_, file, line, _ := runtime.Caller(0)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": errors.Wrapf(err, "failed to insert memo: %s:%d", file, line)})
@@ -34,16 +35,18 @@ func CreateMemo(c *fiber.Ctx) error {
 }
 
 func GetMemos(c *fiber.Ctx) error {
-	dbConn, ok := c.Locals("db").(*sql.DB)
-	if !ok {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "failed to get database connection from context"})
+	dbConn, err := db.Connect()
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": errors.Wrap(err, "failed to connect to database")})
 	}
+	defer dbConn.Close()
 
 	rows, err := dbConn.Query("SELECT id, content, created_at FROM memos")
 	if err != nil {
 		_, file, line, _ := runtime.Caller(0)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": errors.Wrapf(err, "failed to query memos: %s:%d", file, line)})
 	}
+	defer rows.Close()
 
 	var memos []model.Memo
 	for rows.Next() {
@@ -59,10 +62,11 @@ func GetMemos(c *fiber.Ctx) error {
 }
 
 func UpdateMemo(c *fiber.Ctx) error {
-	dbConn, ok := c.Locals("db").(*sql.DB)
-	if !ok {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "failed to get database connection from context"})
+	dbConn, err := db.Connect()
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": errors.Wrap(err, "failed to connect to database")})
 	}
+	defer dbConn.Close()
 
 	id := c.Params("id")
 	if id == "" {
@@ -74,7 +78,7 @@ func UpdateMemo(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": errors.Wrap(err, "failed to parse request body")})
 	}
 
-	_, err := dbConn.Exec("UPDATE memos SET content = $1 WHERE id = $2", memo.Content, id)
+	_, err = dbConn.Exec("UPDATE memos SET content = $1 WHERE id = $2", memo.Content, id)
 	if err != nil {
 		_, file, line, _ := runtime.Caller(0)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": errors.Wrapf(err, "failed to update memo: %s:%d", file, line)})
@@ -84,17 +88,18 @@ func UpdateMemo(c *fiber.Ctx) error {
 }
 
 func DeleteMemo(c *fiber.Ctx) error {
-	dbConn, ok := c.Locals("db").(*sql.DB)
-	if !ok {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "failed to get database connection from context"})
+	dbConn, err := db.Connect()
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": errors.Wrap(err, "failed to connect to database")})
 	}
+	defer dbConn.Close()
 
 	id := c.Params("id")
 	if id == "" {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "memo ID is required"})
 	}
 
-	_, err := dbConn.Exec("DELETE FROM memos WHERE id = $1", id)
+	_, err = dbConn.Exec("DELETE FROM memos WHERE id = $1", id)
 	if err != nil {
 		_, file, line, _ := runtime.Caller(0)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": errors.Wrapf(err, "failed to delete memo: %s:%d", file, line)})

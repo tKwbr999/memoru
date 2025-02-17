@@ -1,4 +1,4 @@
-module github.com/your-github-account/memoru-backend
+module github.com/tKwbr999/memoru-backend
 
 go 1.23.4
 
