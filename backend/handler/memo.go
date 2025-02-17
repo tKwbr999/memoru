@@ -44,7 +44,6 @@ func GetMemos(c *fiber.Ctx) error {
 		_, file, line, _ := runtime.Caller(0)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": errors.Wrapf(err, "failed to query memos: %s:%d", file, line)})
 	}
-	defer rows.Close()
 
 	var memos []model.Memo
 	for rows.Next() {

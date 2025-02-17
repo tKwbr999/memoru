@@ -21,7 +21,7 @@ func main() {
 		slog.Error("Failed to connect to database", "error", err)
 		os.Exit(1) // 接続に失敗したらプログラムを終了
 	}
-	defer dbConn.Close()
+	// defer dbConn.Close()
 
 	app := fiber.New()
 

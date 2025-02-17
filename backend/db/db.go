@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -16,10 +15,21 @@ func Connect() (*sql.DB, error) {
 		return nil, fmt.Errorf("error loading .env file: %w", err)
 	}
 
-	dbURL := fmt.Sprintf("postgresql://postgres:%s@db.%s:5432/postgres?sslmode=disable",
+	// //transaction pooler
+	// dbURL := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?pgbouncer=true&connection_limit=1",
+	// 	os.Getenv("SUPABASE_DATABASE_USER"),
+	// 	os.Getenv("SUPABASE_DATABASE_PASSWORD"),
+	// 	os.Getenv("SUPABASE_DATABASE_HOST"),
+	// 	os.Getenv("SUPABASE_DATABASE_TRANSACTION_POOLER_PORT"),
+	// 	os.Getenv("SUPABASE_DATABASE_DBNAME"))
+
+	// // session pooler
+	dbURL := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?pgbouncer=true&connection_limit=1",
+		os.Getenv("SUPABASE_DATABASE_USER"),
 		os.Getenv("SUPABASE_DATABASE_PASSWORD"),
-		strings.Replace(os.Getenv("SUPABASE_URL"), "https://", "", 1), // https:// を削除
-	)
+		os.Getenv("SUPABASE_DATABASE_HOST"),
+		os.Getenv("SUPABASE_DATABASE_SESSION_POOLER_PORT"),
+		os.Getenv("SUPABASE_DATABASE_DBNAME"))
 
 	fmt.Println(dbURL)
 

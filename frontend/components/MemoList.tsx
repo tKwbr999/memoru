@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface Memo {
-  id: number;
+  id: string;
   content: string;
 }
 
