@@ -1,52 +1,48 @@
 package handler
 
 import (
-	"fmt"
+	"database/sql"
 	"net/http"
+	"runtime"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/your-github-account/memoru-backend/db"
+	"github.com/pkg/errors"
 	"github.com/your-github-account/memoru-backend/model"
 )
 
 func CreateMemo(c *fiber.Ctx) error {
-	dbConn, err := db.Connect()
-	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	dbConn, ok := c.Locals("db").(*sql.DB)
+	if !ok {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "failed to get database connection from context"})
 	}
-	defer dbConn.Close()
 
 	var memo model.Memo
 	if err := c.BodyParser(&memo); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": errors.Wrap(err, "failed to parse request body")})
 	}
 
-	result, err := dbConn.Exec("INSERT INTO memos (content) VALUES ($1)", memo.Content)
+	var id string
+	err := dbConn.QueryRow("INSERT INTO memos (content) VALUES ($1) RETURNING id", memo.Content).Scan(&id)
 	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("Error inserting memo: %v", err)})
+		_, file, line, _ := runtime.Caller(0)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": errors.Wrapf(err, "failed to insert memo: %s:%d", file, line)})
 	}
 
-	// InsertされたレコードのIDを取得
-	id, err := result.LastInsertId()
-	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("Error getting last insert ID: %v", err)})
-	}
-
-	memo.ID = fmt.Sprintf("%d", id) // 取得したIDをmemoにセット
+	memo.ID = id // 取得したIDをmemoにセット
 
 	return c.Status(http.StatusCreated).JSON(memo)
 }
 
 func GetMemos(c *fiber.Ctx) error {
-	dbConn, err := db.Connect()
-	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	dbConn, ok := c.Locals("db").(*sql.DB)
+	if !ok {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "failed to get database connection from context"})
 	}
-	defer dbConn.Close()
 
 	rows, err := dbConn.Query("SELECT id, content, created_at FROM memos")
 	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		_, file, line, _ := runtime.Caller(0)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": errors.Wrapf(err, "failed to query memos: %s:%d", file, line)})
 	}
 	defer rows.Close()
 
@@ -54,7 +50,8 @@ func GetMemos(c *fiber.Ctx) error {
 	for rows.Next() {
 		var memo model.Memo
 		if err := rows.Scan(&memo.ID, &memo.Content, &memo.CreatedAt); err != nil {
-			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+			_, file, line, _ := runtime.Caller(0)
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": errors.Wrapf(err, "failed to scan memo: %s:%d", file, line)})
 		}
 		memos = append(memos, memo)
 	}
@@ -63,11 +60,10 @@ func GetMemos(c *fiber.Ctx) error {
 }
 
 func UpdateMemo(c *fiber.Ctx) error {
-	dbConn, err := db.Connect()
-	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	dbConn, ok := c.Locals("db").(*sql.DB)
+	if !ok {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "failed to get database connection from context"})
 	}
-	defer dbConn.Close()
 
 	id := c.Params("id")
 	if id == "" {
@@ -76,32 +72,33 @@ func UpdateMemo(c *fiber.Ctx) error {
 
 	var memo model.Memo
 	if err := c.BodyParser(&memo); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": errors.Wrap(err, "failed to parse request body")})
 	}
 
-	_, err = dbConn.Exec("UPDATE memos SET content = $1 WHERE id = $2", memo.Content, id)
+	_, err := dbConn.Exec("UPDATE memos SET content = $1 WHERE id = $2", memo.Content, id)
 	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		_, file, line, _ := runtime.Caller(0)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": errors.Wrapf(err, "failed to update memo: %s:%d", file, line)})
 	}
 
 	return c.JSON(memo)
 }
 
 func DeleteMemo(c *fiber.Ctx) error {
-	dbConn, err := db.Connect()
-	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	dbConn, ok := c.Locals("db").(*sql.DB)
+	if !ok {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "failed to get database connection from context"})
 	}
-	defer dbConn.Close()
 
 	id := c.Params("id")
 	if id == "" {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "memo ID is required"})
 	}
 
-	_, err = dbConn.Exec("DELETE FROM memos WHERE id = $1", id)
+	_, err := dbConn.Exec("DELETE FROM memos WHERE id = $1", id)
 	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		_, file, line, _ := runtime.Caller(0)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": errors.Wrapf(err, "failed to delete memo: %s:%d", file, line)})
 	}
 
 	return c.SendStatus(http.StatusNoContent)
