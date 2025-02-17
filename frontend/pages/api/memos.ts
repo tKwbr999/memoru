@@ -16,12 +16,13 @@ export default async function handler(
     });
 
     if (!response.ok) {
-      throw new Error(`Backend returned status: ${response.status}`);
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Backend returned status: ${response.status}`);
     }
 
     const data = await response.json();
     res.status(response.status).json(data);
-  } catch (error:any) {
+  } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 }
